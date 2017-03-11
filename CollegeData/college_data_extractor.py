@@ -1,102 +1,130 @@
+#
+# Looks in the directory where the raw HTML is stored, feeds it into 
+# BeautifulSoup, looks for the given fields, and writes the data to a CSV
+# 
+# Currently set up to run concurrently
+#
 
 from bs4 import BeautifulSoup
+from multiprocessing import Pool
+from time import time
 import csv
 import os 
 import re
 
-def write_to_csv(csv_file, html_dir, state):
-	with open(csv_file, 'w', newline='') as data: 
-		fieldnames = ['University', 'State', 'City', 'Enrollment (Undergrad)',
-						'Male Enrollment', 'Female Enrollment',
-						'Native Hawaiian/ Pacific Islander', 
-						'American Indian/Alaskan Native', 
-						'Multi-race (not Hispanic/Latino)', 'Asian', 
-						'White', 'Black/African-American', 'International', 
-						'Hispanic/Latino', 'Unknown']
-
-		writer = csv.DictWriter(data, fieldnames=fieldnames)
-		writer.writeheader()
-
-		for f in os.listdir(os.path.join(html_dir, state)):
-			row = dict()
-
-			with open(os.path.join(html_dir, state, f)) as html: 
-				soup = BeautifulSoup(html, 'lxml')
+# What the scraper looks for and populates 
+fields = [  'School ID', 
+            'University', 
+            'State', 
+            'City', 
+            'Enrollment (Undergrad)', 
+            'Male Enrollment', 
+            'Female Enrollment',
+            'Native Hawaiian/Pacific Islander', 
+            'American Indian/Alaskan Native', 
+            'Multi-race (not Hispanic/Latino)', 
+            'Asian', 
+            'White', 'Black/African-American', 
+            'International', 
+            'Hispanic/Latino', 
+            'Unknown']
 
 
-				title = soup.find("div", class_="cp_left")	
-				uni_name = title.find("h1").get_text()
-				uni_city, uni_state = title.find("p").get_text().strip().split(",")
+def scrape_html(html):
+    row = dict.fromkeys(fields)
+    row['School ID'] = re.sub(".html", "",os.path.basename(html))
 
-				row['University'] = uni_name
-				row['State'] = uni_state.strip()
-				row['City'] = uni_city
- 
-				undergrad_data = soup.find('th', text="Undergraduate Students")
+    try:
+        with open(html) as f: 
+            soup = BeautifulSoup(f, 'lxml')
 
-				uni_size = undergrad_data.next_sibling.text
+            title = soup.find("div", class_="cp_left")  
+            uni_name = title.find("h1").get_text()
+            uni_city, uni_state = title.find("p").get_text().strip().split(",")
 
-				if uni_size == 'Not reported':
-					continue
+            row['University'] = uni_name
+            row['State'] = uni_state.strip()
+            row['City'] = uni_city
 
-				row['Enrollment (Undergrad)'] = int(re.sub(",", "", uni_size))
+            undergrad_data = soup.find('th', text="Undergraduate Students")
 
-				# Gender information
-				women = undergrad_data.parent.next_sibling.next_sibling
-				enrolled_women = women.find('td').text.split()[0]
+            uni_size = undergrad_data.next_sibling.text
 
-				men = women.next_sibling.next_sibling
-				enrolled_men = men.find('td').text.split()[0]
+            if uni_size != 'Not reported':
+                row['Enrollment (Undergrad)'] = int(re.sub(",", "", uni_size))
 
-				if enrolled_women == 'Not':
-					continue
-				if enrolled_men == 'Not':
-					continue
+            # Gender information
+            try:
+                women = undergrad_data.parent.next_sibling.next_sibling
+                enrolled_women = women.find('td').text.split()[0]
 
-				row['Male Enrollment'] = int(re.sub(",", "", enrolled_men))
-				row['Female Enrollment'] = int(re.sub(",", "", enrolled_women))
+                men = women.next_sibling.next_sibling
+                enrolled_men = men.find('td').text.split()[0]
 
+                if enrolled_women != 'Not':
+                    row['Male Enrollment'] = int(re.sub(",", "", enrolled_men))
+                if enrolled_men != 'Not':
+                    row['Female Enrollment'] = int(re.sub(",", "", enrolled_women))
+            except Exception as e:
+                pass
 
-				# Economic information
-				#money = soup.find('th', text="Cost of Attendance")
-				#print("Cost: " + money.next_sibling.text)
+            # Economic information
+            #money = soup.find('th', text="Cost of Attendance")
+            #print("Cost: " + money.next_sibling.text)
 
-				# Greek life data -- would need to be incorporated  
-				#frat = soup.find('th', text="Fraternities")
-				#print("Frat: " + frat.next_sibling.text)
-				#soro = soup.find('th', text="Sororities")
-				#print("Soro: " + soro.next_sibling.text)
+            # Greek life data -- would need to be incorporated  
+            #frat = soup.find('th', text="Fraternities")
+            #print("Frat: " + frat.next_sibling.text)
+            #soro = soup.find('th', text="Sororities")
+            #print("Soro: " + soro.next_sibling.text)
 
-				ethnicity = soup.find('th', text="Ethnicity of Students from U.S.")
+            ethnicity = soup.find('th', text="Ethnicity of Students from U.S.")
 
-				for x in ethnicity.next_sibling.children:
-					if x.string != None:
-						try:
-							perc, nationality = x.string.split("%")
-							row[nationality.strip()] = perc
-						except ValueError: 
-							continue
+            for x in ethnicity.next_sibling.children:
+                if x.string != None:
+                    try:
+                        perc, nationality = x.string.split("%")
+                        if nationality.strip() == 'Native Hawaiian/ Pacific Islander':
+                            row['Native Hawaiian/Pacific Islander'] = perc
+                        else:    
+                            row[nationality.strip()] = perc
+                    except ValueError: 
+                        continue
+            try:
+                internat = soup.find('th', text="International Students").next_sibling.text.split()
+                p_internat = internat[0]
 
-				internat = soup.find('th', text="International Students").next_sibling.text.split()
-				p_internat = internat[0]
+                if p_internat != 'Not':
+                    row["International"] = re.sub("%", "", p_internat)
+            except Exception as e:
+                pass
 
-				if p_internat == 'Not':
-					continue
+    except Exception as e:
+        print(html)
 
-				row["International"] = re.sub("%", "", p_internat)
+    return row
 
-				for field in fieldnames: 
-					if field not in row:
-						continue
-						#row[field] = None
-
-				writer.writerow(row)
 
 if __name__ == '__main__':
-	csv_file = 'ga_college_data.csv'
-	csv_dir = 'CSV'
+    csv_file = 'ga_college_data.csv'
+    csv_dir = 'CSV'
 
-	html_dir = 'HTML'
-	state = 'GA'
+    html_dir = 'HTML'
+    state = 'GA'
 
-	write_to_csv(os.path.join(csv_dir, csv_file), html_dir, state)
+    cwd = os.path.join(os.getcwd(), html_dir)
+
+    files = [os.path.join(cwd, file) for file in os.listdir(html_dir)]
+
+    pool = Pool(processes=8)
+
+    t0 = time()
+    data = pool.map(scrape_html, files)
+
+    with open("CollegeData.csv", "w", newline='') as f: 
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        for row in data:
+            writer.writerow(row)
+
+    print("Time Elapsed: %0.3f" % (time() - t0))

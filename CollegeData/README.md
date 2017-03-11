@@ -1,0 +1,24 @@
+
+Date--
+Sat, 11 Mar 2017 
+
+Iterations -- 
+STARTING_ID
+MAX_INVALID
+TIME (seconds)
+
+1 
+10 
+2130.029
+
+1978 
+15 
+118.410
+
+2114 
+20
+14.530
+
+2133
+50
+35.903
