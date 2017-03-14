@@ -14,7 +14,7 @@ import sys
 import os
 
 
-base = "http://www.collegedata.com/cs/data/college/college_pg01_tmpl.jhtml?schoolId="
+base_url = "http://www.collegedata.com/cs/data/college/college_pg01_tmpl.jhtml?schoolId="
 
 # String to look for defining a non-existant page
 not_found = "You requested a College Profile page that does not exist. Please search again."
@@ -36,7 +36,7 @@ def run():
         sys.stdout.write("\rSchool ID: %i" % school_id)
         sys.stdout.flush()
 
-        url = base + str(school_id)
+        url = base_url + str(school_id)
         html = urllib.request.urlopen(url).read()
 
         if not_found.encode() in html:
