@@ -1,3 +1,11 @@
+Collected 4527 school pages 
+
+Final Results:
+School ID: 4816
+Time Elapsed: 903.729
+Date: Tue, 14 Mar 2017 17:44:02
+
+
 Need to figure out what to scrape from college board -- they got some good stuff 
 
 (This is also for reference)
