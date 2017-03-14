@@ -2,8 +2,8 @@ Need to figure out what to scrape from college board -- they got some good stuff
 
 (This is also for reference)
 
-
-`<td class="col2 alignRight">
+```
+<td class="col2 alignRight">
 
 <h1>Emory University</h1>
 <h2>Atlanta, GA</h2>
@@ -82,4 +82,4 @@ Need to figure out what to scrape from college board -- they got some good stuff
 <p>Pre-admission summer program </p>
 </td>
 </tr>
-`
+```
