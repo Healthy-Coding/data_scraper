@@ -106,11 +106,9 @@ def scrape_html(html):
 
 
 if __name__ == '__main__':
-    csv_file = 'ga_college_data.csv'
     csv_dir = 'CSV'
 
     html_dir = 'HTML'
-    state = 'GA'
 
     cwd = os.path.join(os.getcwd(), html_dir)
 

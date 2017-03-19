@@ -11,22 +11,22 @@ import re
 
 fields = [  'University', 
             'City',       
-            'State' ]
-#            'Enrollment (Undergrad)', 
-#            'Male Enrollment', 
-#            'Female Enrollment',
-#            'Native Hawaiian/Pacific Islander', 
-#            'American Indian/Alaskan Native', 
-#            'Multi-race (not Hispanic/Latino)', 
-#            'Asian', 
-#            'White', 'Black/African-American', 
-#            'International', 
-#            'Hispanic/Latino', 
-#            'Unknown']
+            'State',
+            'White',
+            'Hispanic/Latino',
+            'Black African American',
+            'Two or more races',
+            'Asian',
+            'Race Ethnicity Unknown',
+            'Non-Resident Alien',
+            'American Indian/Alaskan Native', 
+            'Native Hawaiian/Pacific Islander']
+
+
+restricted = set(['PR', 'VI'])
 
 def scrape_html(html):
     row = dict.fromkeys(fields)
-
 
     try:
         with open(html) as f:
@@ -34,15 +34,29 @@ def scrape_html(html):
             title = soup.find("td", class_="col2 alignRight") 
             row['University'] = title.find('h1').text
             row['City'] = title.find('h2').text.split(',')[0]
-            row['State'] = title.find('h2').text.split(',')[1]
+            row['State'] = title.find('h2').text.split(',')[1].strip()
+
+
+            if len(row['State']) != 2 or row['State'] in restricted:
+                return  
+
+            race_data = soup.find('h2', string='Race/Ethnicity')
+
+            if race_data == None:
+                return
+            else:
+                for r in race_data.find_parent().find_all('p'):
+                    tag = r.text.split(':')[0].strip()
+                    percent = r.text.split(':')[1].strip()
+                    row[tag] = percent
 
     except:
         pass
 
-
     return row
 
 
+from collections import Counter
 
 
 
@@ -64,7 +78,8 @@ if __name__ == '__main__':
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         for row in data:
-            writer.writerow(row)
+            if row != None:
+                writer.writerow(row)
 
     print("Time Elapsed: %0.3f" % (time() - t0))
 
