@@ -1,24 +1,15 @@
-
 from bs4 import BeautifulSoup
 from multiprocessing import Pool
 from time import time
 import csv
 import os 
 import re
+import validators
 
 
-fields = [  'University', 
-            'City',       
-            'State',
-            'White',
-            'Hispanic/Latino',
-            'Black African American',
-            'Two or more races',
-            'Asian',
-            'Race Ethnicity Unknown',
-            'Non-Resident Alien',
-            'American Indian/Alaskan Native', 
-            'Native Hawaiian/Pacific Islander']
+fields = [  'University',
+            'services',
+            'website'    ]
 
 
 restricted = set(['PR', 'VI'])
@@ -31,30 +22,23 @@ def scrape_html(html):
             soup = BeautifulSoup(f, 'lxml')
             title = soup.find("td", class_="col2 alignRight") 
             row['University'] = title.find('h1').text
-            row['City'] = title.find('h2').text.split(',')[0]
-            row['State'] = title.find('h2').text.split(',')[1].strip()
-
-
-            if len(row['State']) != 2 or row['State'] in restricted:
+            state = title.find('h2').text.split(',')[1].strip()
+            if len(state) != 2 or state in restricted:
                 return  
 
-            race_data = soup.find('h2', string='Race/Ethnicity')
+            p = soup.find('h2', text=r"Counseling And Wellness")
+            services = [s.text.strip() for s in p.parent.find_all('p')]
+            row['services'] = '; '.join(services)
 
-            if race_data == None:
-                return
-            else:
-                for r in race_data.find_parent().find_all('p'):
-                    tag = r.text.split(':')[0].strip()
-                    percent = r.text.split(':')[1].strip()
-                    row[tag] = percent
+            for c in soup.find('h2', text=r"Main Address").parent.children:
+                if 'www.' in str(c.string):
+                    row['website'] = str(c.string)
 
     except:
         pass
 
     return row
 
-
-from collections import Counter
 
 
 
@@ -72,7 +56,7 @@ if __name__ == '__main__':
     t0 = time()
     data = pool.map(scrape_html, files)
 
-    with open("CollegeBoard.csv", "w", newline='') as f: 
+    with open("CollegeBoardUpdate.csv", "w", newline='') as f: 
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         for row in data:
